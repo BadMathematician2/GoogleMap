@@ -75,8 +75,8 @@ class SearchGoogleMap
 
         for ($x = $lat1; $x < $lat2; $x = $this->latPlusMeters($x, $side)) {
             for ($y = $lng1; $y < $lng2; $y = $this->lngPlusMeters($y, $side)) {
-                if (! empty($this->getObjects($x, $y, $radius)['results'])) {
-                    $this->searchInRectangle($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $this->latPlusMeters($x, $side),  $this->lngPlusMeters($y, $side), $r);
+                if (! empty($this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results'])) {
+                    $this->searchInRectangle($x, $y, $this->latPlusMeters($x, $side),  $this->lngPlusMeters($y, $side), $r);
                 }
             }
         }
