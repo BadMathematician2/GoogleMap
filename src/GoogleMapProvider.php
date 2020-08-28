@@ -23,6 +23,7 @@ class GoogleMapProvider extends ServiceProvider
     {
         $this->migrationsRegister();
         $this->configsRegister();
+        $this->commandRegister();
     }
 
     private function migrationsRegister()
@@ -33,5 +34,14 @@ class GoogleMapProvider extends ServiceProvider
     private function configsRegister()
     {
         $this->mergeConfigFrom(__DIR__ . '/config/api_key.php', 'api_key');
+        $this->mergeConfigFrom(__DIR__ . '/config/search.php', 'search');
+        $this->mergeConfigFrom(__DIR__ . '/config/places.php', 'places');
+    }
+
+    private function commandRegister()
+    {
+        $this->commands([
+            \GoogleMap\Commands\SearchGoogleMap::class
+        ]);
     }
 }

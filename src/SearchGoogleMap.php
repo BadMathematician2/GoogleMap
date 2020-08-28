@@ -4,6 +4,8 @@
 namespace GoogleMap;
 
 
+use App\Packages\GoogleMap\src\Exceptions\InvalidKeyException;
+use App\Packages\GoogleMap\src\Models\Request;
 use App\Packages\GoogleMap\src\Repositories\ApiKeyRepository;
 use GoogleMap\Models\GoogleObject;
 
@@ -13,9 +15,16 @@ class SearchGoogleMap
 
     const LAT_METER = 0.000012;
     const LNG_METER = 0.000009;
+    const SQR_TWO = 2**0.5;
 
-    private $controller;
 
+    /**
+     * @var ApiKeyRepository
+     */
+    private $apiKeyRepository;
+    /**
+     * @var mixed
+     */
     private $api_key;
 
     /**
@@ -26,20 +35,17 @@ class SearchGoogleMap
         return $this->api_key;
     }
 
-    /**
-     * @param mixed $api_key
-     */
-    public function setApiKey($api_key): void
+    public function update(): void
     {
-        $this->api_key = $api_key;
+        $this->api_key = $this->getApiKeyRepository()->changeApiKey($this->getApiKey());
     }
 
     /**
      * @return ApiKeyRepository
      */
-    public function getController(): ApiKeyRepository
+    public function getApiKeyRepository(): ApiKeyRepository
     {
-        return $this->controller;
+        return $this->apiKeyRepository;
     }
 
     /**
@@ -48,9 +54,9 @@ class SearchGoogleMap
      */
     public function __construct(ApiKeyRepository $controller)
     {
-        $this->setApiKey($controller->takeApiKey());
+        $this->api_key = $controller->takeApiKey();
 
-        $this->controller = $controller;
+        $this->apiKeyRepository = $controller;
     }
 
     /**
@@ -59,39 +65,47 @@ class SearchGoogleMap
      * @param float $longitude
      * @param float $radius
      * @return mixed
+     * @throws InvalidKeyException
      */
     public function getObjects(float $latitude, float $longitude, float $radius)
     {
+        if (Request::query()->where('circle', $latitude . ',' . $longitude . ',' . $radius)->exists()) {
+            return null;
+        }
+
         $url = $this->getUrl($latitude, $longitude, $radius);
 
         try {
             $results = json_decode(file_get_contents($url), true);
+            $statuses = config('search')['status'];
 
-            while($results['status'] != 'OK' && $results['status'] != 'ZERO_RESULTS') {
-                $this->setApiKey($this->getController()->changeApiKey($this->getApiKey()));
-                $results = json_decode(file_get_contents($url), true);
+            if (in_array($results['status'], $statuses)) {
+                foreach ($results['results'] as $data) {
+                    try {
+                        $this->addInDb($data);
+                    } catch (\Exception $exception) {
+
+                    }
+                }
+
+                Request::query()->create(['data' => json_encode($results), 'circle' => $latitude . ',' . $longitude . ',' . $radius ]);
+
+                return $results;
             }
-
-            foreach ($results['results'] as $data) {
-                try {
-                    $this->setInDB($data);
-                } catch (\Exception $exception){}
-            }
-
-            return $results;
 
         } catch (\Exception $exception) {
             \Log::info($exception->getMessage());
+
+            return null;
         }
 
-
-        return null;
+        throw new InvalidKeyException();
     }
 
     /**
      * @param array $data
      */
-    private function setInDB(array $data)
+    private function addInDb(array $data)
     {
         GoogleObject::query()->create(['data' => json_encode($data), 'place_id' => $this->getPlaceId($data)]);
     }
@@ -113,7 +127,16 @@ class SearchGoogleMap
      */
     private function getUrl(float $latitude, float $longitude, float $radius)
     {
-        return self::URL . "location=$latitude,$longitude&radius=$radius&key={$this->getApiKey()}";
+        $params = [
+            'location' => $latitude . ',' . $longitude,
+            'radius' => $radius,
+            'key' => $this->getApiKey()
+        ];
+        foreach ($params as $key => $value) {
+            $params[$key] = $key . '='. $value;
+        }
+
+        return self::URL . implode('&', $params);
     }
 
     /**
@@ -127,11 +150,16 @@ class SearchGoogleMap
      */
     public function searchInRectangle(float $lat1, float $lng1, float $lat2, float $lng2, float $radius)
     {
-        $step = $radius * 2**0.5; //крок сітки
+        $step = $radius * self::SQR_TWO; //крок сітки
 
         for ($x = $this->latPlusMeters($lat1, $step / 2); $x < $lat2; $x = $this->latPlusMeters($x, $step)) {
             for ($y = $this->lngPlusMeters($lng1, $step / 2); $y < $lng2; $y = $this->lngPlusMeters($y, $step)) {
-                $this->getObjects($x, $y, $radius);
+                try {
+                    $this->getObjects($x, $y, $radius);
+                } catch (InvalidKeyException $e) {
+                    $this->update();
+                    $y = $this->lngPlusMeters($y, -1 * $step);
+                }
             }
         }
 
@@ -146,17 +174,17 @@ class SearchGoogleMap
      * @param float $lng1
      * @param float $lat2
      * @param float $lng2
-     * @param float $side
-     * @param float $r
      */
-    public function searchIn(float $lat1, float $lng1, float $lat2, float $lng2, float $side, float $r)
+    public function searchIn(float $lat1, float $lng1, float $lat2, float $lng2)
     {
-        $radius = $side *  2**0.5 / 2; // радіус кола описаного навколо квадрата
+        $side = config('search')['side'];
 
+        $radius = $side /  self::SQR_TWO; // радіус кола описаного навколо квадрата
+        $r = config('search')['radius'];
         // робимо розбиття на квадрати
         for ($x = $lat1; $x < $lat2; $x = $this->latPlusMeters($x, $side)) {
             for ($y = $lng1; $y < $lng2; $y = $this->lngPlusMeters($y, $side)) {
-                if (count($this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results']) >= 20) {
+                if ($this->isTheMax($x, $y, $side, $radius)) {
                     $this->searchInRectangle($x, $y, $this->latPlusMeters($x, $side),  $this->lngPlusMeters($y, $side), $r);
                 }
             }
@@ -185,5 +213,10 @@ class SearchGoogleMap
     private function lngPlusMeters(float $longitude, float $meters)
     {
         return $longitude + self::LNG_METER * $meters;
+    }
+
+    private function isTheMax($x, $y, $side, $radius)
+    {
+        return count($this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results']) >= config('search')['max_results'];
     }
 }
