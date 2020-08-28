@@ -4,7 +4,8 @@
 namespace GoogleMap;
 
 
-use App\Models\GoogleObject;
+use App\Packages\GoogleMap\src\Repositories\ApiKeyRepository;
+use GoogleMap\Models\GoogleObject;
 
 class SearchGoogleMap
 {
@@ -13,17 +14,43 @@ class SearchGoogleMap
     const LAT_METER = 0.000012;
     const LNG_METER = 0.000009;
 
+    private $controller;
+
     private $api_key;
 
     /**
-     * @param string $api_key
-     * @return SearchGoogleMap
+     * @return \Illuminate\Database\Eloquent\HigherOrderBuilderProxy|mixed
      */
-    public function setApiKey(string $api_key)
+    public function getApiKey()
+    {
+        return $this->api_key;
+    }
+
+    /**
+     * @param mixed $api_key
+     */
+    public function setApiKey($api_key): void
     {
         $this->api_key = $api_key;
+    }
 
-        return $this;
+    /**
+     * @return ApiKeyRepository
+     */
+    public function getController(): ApiKeyRepository
+    {
+        return $this->controller;
+    }
+
+    /**
+     * SearchGoogleMap constructor.
+     * @param ApiKeyRepository $controller
+     */
+    public function __construct(ApiKeyRepository $controller)
+    {
+        $this->setApiKey($controller->takeApiKey());
+
+        $this->controller = $controller;
     }
 
     /**
@@ -37,15 +64,28 @@ class SearchGoogleMap
     {
         $url = $this->getUrl($latitude, $longitude, $radius);
 
-        $results = json_decode(file_get_contents($url), true);
+        try {
+            $results = json_decode(file_get_contents($url), true);
 
-        foreach ($results['results'] as $data) {
-            try {
-                $this->setInDB($data);
-            } catch (\Exception $exception){}
+            while($results['status'] != 'OK' && $results['status'] != 'ZERO_RESULTS') {
+                $this->setApiKey($this->getController()->changeApiKey($this->getApiKey()));
+                $results = json_decode(file_get_contents($url), true);
+            }
+
+            foreach ($results['results'] as $data) {
+                try {
+                    $this->setInDB($data);
+                } catch (\Exception $exception){}
+            }
+
+            return $results;
+
+        } catch (\Exception $exception) {
+            \Log::info($exception->getMessage());
         }
 
-        return $results;
+
+        return null;
     }
 
     /**
@@ -73,7 +113,7 @@ class SearchGoogleMap
      */
     private function getUrl(float $latitude, float $longitude, float $radius)
     {
-        return self::URL . "location=$latitude,$longitude&radius=$radius&key=$this->api_key";
+        return self::URL . "location=$latitude,$longitude&radius=$radius&key={$this->getApiKey()}";
     }
 
     /**
@@ -87,10 +127,10 @@ class SearchGoogleMap
      */
     public function searchInRectangle(float $lat1, float $lng1, float $lat2, float $lng2, float $radius)
     {
-        $step = $radius * 2**0.5 / 2; //крок сітки
+        $step = $radius * 2**0.5; //крок сітки
 
-        for ($x = $this->latPlusMeters($lat1, $step); $x < $lat2; $x = $this->latPlusMeters($x, $step)) {
-            for ($y = $this->lngPlusMeters($lng1, $step); $y < $lng2; $y = $this->lngPlusMeters($y, $step)) {
+        for ($x = $this->latPlusMeters($lat1, $step / 2); $x < $lat2; $x = $this->latPlusMeters($x, $step)) {
+            for ($y = $this->lngPlusMeters($lng1, $step / 2); $y < $lng2; $y = $this->lngPlusMeters($y, $step)) {
                 $this->getObjects($x, $y, $radius);
             }
         }
@@ -146,5 +186,4 @@ class SearchGoogleMap
     {
         return $longitude + self::LNG_METER * $meters;
     }
-
 }
