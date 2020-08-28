@@ -1,0 +1,27 @@
+{
+    "name": "mykola/google-map",
+    "description": "Search objects from google map",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Mykola",
+            "email": "mathematic204chnu@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "GoogleMap\\": "src"
+        }
+    },
+    "require": {},
+    "extra": {
+        "laravel": {
+            "providers": [
+                "\\GoogleMap\\GoogleMapProvider"
+            ],
+            "aliases": {
+                "GoogleMap": "GoogleMap\\GoogleMapFacade"
+            }
+        }
+    }
+}
