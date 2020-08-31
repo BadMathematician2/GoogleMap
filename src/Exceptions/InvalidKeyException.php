@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Packages\GoogleMap\src\Exceptions;
+namespace GoogleMap\Exceptions;
 
 
 class InvalidKeyException extends \Exception

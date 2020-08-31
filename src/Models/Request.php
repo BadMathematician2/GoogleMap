@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Packages\GoogleMap\src\Models;
+namespace GoogleMap\Models;
 
 
 use Illuminate\Database\Eloquent\Model;
