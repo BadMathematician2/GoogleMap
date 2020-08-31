@@ -6,8 +6,8 @@ namespace GoogleMap;
 
 use App\Packages\GoogleMap\src\Exceptions\InvalidKeyException;
 use App\Packages\GoogleMap\src\Models\Request;
-use App\Packages\GoogleMap\src\Repositories\ApiKeyRepository;
 use GoogleMap\Models\GoogleObject;
+use GoogleMap\Repositories\ApiKeyRepository;
 
 class SearchGoogleMap
 {

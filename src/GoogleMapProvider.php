@@ -4,8 +4,8 @@
 namespace GoogleMap;
 
 
-use App\Packages\GoogleMap\src\Repositories\ApiKeyRepository;
-use App\Packages\GoogleMap\src\Repositories\Interfaces\ApiKeyRepositoryInterface;
+use GoogleMap\Repositories\ApiKeyRepository;
+use GoogleMap\Repositories\Interfaces\ApiKeyRepositoryInterface;
 use Illuminate\Support\ServiceProvider;
 
 class GoogleMapProvider extends ServiceProvider

@@ -1,10 +1,10 @@
 <?php
 
 
-namespace App\Packages\GoogleMap\src\Repositories;
+namespace GoogleMap\Repositories;
 
 
-use App\Packages\GoogleMap\src\Repositories\Interfaces\ApiKeyRepositoryInterface;
+use GoogleMap\Repositories\Interfaces\ApiKeyRepositoryInterface;
 use Carbon\Carbon;
 use GoogleMap\Models\ApiKey;
 

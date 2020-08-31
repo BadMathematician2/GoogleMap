@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Packages\GoogleMap\src\Repositories\Interfaces;
+namespace GoogleMap\Repositories\Interfaces;
 
 
 interface ApiKeyRepositoryInterface
