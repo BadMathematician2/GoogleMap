@@ -84,7 +84,7 @@ class SearchGoogleMap
                     try {
                         $this->addInDb($data);
                     } catch (\Exception $exception) {
-
+                        \Log::info('This data is already exist in DB, place_id - ' . $data['place_id']);
                     }
                 }
 
