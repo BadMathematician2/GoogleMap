@@ -35,11 +35,6 @@ class SearchGoogleMap
         return $this->api_key;
     }
 
-    public function update(): void
-    {
-        $this->api_key = $this->getApiKeyRepository()->changeApiKey($this->getApiKey());
-    }
-
     /**
      * @return ApiKeyRepository
      */
@@ -67,7 +62,7 @@ class SearchGoogleMap
      * @return mixed
      * @throws InvalidKeyException
      */
-    public function getObjects(float $latitude, float $longitude, float $radius)
+    public function makeRequest(float $latitude, float $longitude, float $radius)
     {
         $url = $this->getUrl($latitude, $longitude, $radius);
 
@@ -149,11 +144,11 @@ class SearchGoogleMap
         $step = $radius * self::SQR_TWO; //крок сітки
         for ($x = $this->latPlusMeters($lat1, $step / 2); $x < $lat2; $x = $this->latPlusMeters($x, $step)) {
             for ($y = $this->lngPlusMeters($lng1, $step / 2); $y < $lng2; $y = $this->lngPlusMeters($y, $step)) {
-                if (! $this->isRequested($x, $y, $radius)) {
+                if (! $this->isPassed($x, $y, $radius)) {
                     try {
-                        $this->getObjects($x, $y, $radius);
+                        $this->makeRequest($x, $y, $radius);
                     } catch (InvalidKeyException $e) {
-                        $this->update();
+                        $this->api_key = $this->getApiKeyRepository()->changeApiKey($this->getApiKey());
                         $y = $this->lngPlusMeters($y, -1 * $step);
                     }
                 }
@@ -225,7 +220,7 @@ class SearchGoogleMap
      */
     private function isTheMax(float $x, float $y, float $side, float $radius)
     {
-        $results = $this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results'];
+        $results = $this->makeRequest($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results'];
         if (null === $results) {
             return false;
         }
@@ -261,7 +256,7 @@ class SearchGoogleMap
      * @param float $radius
      * @return bool
      */
-    public function isRequested(float $latitude, float $longitude, float $radius)
+    public function isPassed(float $latitude, float $longitude, float $radius)
     {
         return Request::query()->where('circle', $latitude . ',' . $longitude . ',' . $radius)->exists();
     }
