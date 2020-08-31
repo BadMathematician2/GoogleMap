@@ -69,10 +69,6 @@ class SearchGoogleMap
      */
     public function getObjects(float $latitude, float $longitude, float $radius)
     {
-        if (Request::query()->where('circle', $latitude . ',' . $longitude . ',' . $radius)->exists()) {
-            return null;
-        }
-
         $url = $this->getUrl($latitude, $longitude, $radius);
 
         try {
@@ -151,18 +147,18 @@ class SearchGoogleMap
     public function searchInRectangle(float $lat1, float $lng1, float $lat2, float $lng2, float $radius)
     {
         $step = $radius * self::SQR_TWO; //крок сітки
-
         for ($x = $this->latPlusMeters($lat1, $step / 2); $x < $lat2; $x = $this->latPlusMeters($x, $step)) {
             for ($y = $this->lngPlusMeters($lng1, $step / 2); $y < $lng2; $y = $this->lngPlusMeters($y, $step)) {
-                try {
-                    $this->getObjects($x, $y, $radius);
-                } catch (InvalidKeyException $e) {
-                    $this->update();
-                    $y = $this->lngPlusMeters($y, -1 * $step);
+                if (! $this->isRequested($x, $y, $radius)) {
+                    try {
+                        $this->getObjects($x, $y, $radius);
+                    } catch (InvalidKeyException $e) {
+                        $this->update();
+                        $y = $this->lngPlusMeters($y, -1 * $step);
+                    }
                 }
             }
         }
-
     }
 
     /**
@@ -174,6 +170,7 @@ class SearchGoogleMap
      * @param float $lng1
      * @param float $lat2
      * @param float $lng2
+     * @throws InvalidKeyException
      */
     public function searchIn(float $lat1, float $lng1, float $lat2, float $lng2)
     {
@@ -254,5 +251,18 @@ class SearchGoogleMap
         }
 
         return $side;
+    }
+
+    /**
+     * Перевірка чи такий запит вже був раніше
+     *
+     * @param float $latitude
+     * @param float $longitude
+     * @param float $radius
+     * @return bool
+     */
+    public function isRequested(float $latitude, float $longitude, float $radius)
+    {
+        return Request::query()->where('circle', $latitude . ',' . $longitude . ',' . $radius)->exists();
     }
 }
