@@ -177,7 +177,7 @@ class SearchGoogleMap
      */
     public function searchIn(float $lat1, float $lng1, float $lat2, float $lng2)
     {
-        $side = config('search')['side'];
+        $side = $this->getSide($lat1, $lng1, $lat2, $lng2);
 
         $radius = $side /  self::SQR_TWO; // радіус кола описаного навколо квадрата
         $r = config('search')['radius'];
@@ -215,8 +215,44 @@ class SearchGoogleMap
         return $longitude + self::LNG_METER * $meters;
     }
 
-    private function isTheMax($x, $y, $side, $radius)
+    /**
+     * Перевіряє чи є результати, це робиться у великому квадраті
+     * для того, щоб знати чи є потреба розьивати його на менші квадрати
+     *
+     * @param float $x
+     * @param float $y
+     * @param float $side
+     * @param float $radius
+     * @return bool
+     * @throws InvalidKeyException
+     */
+    private function isTheMax(float $x, float $y, float $side, float $radius)
     {
-        return count($this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results']) >= config('search')['max_results'];
+        $results = $this->getObjects($this->latPlusMeters($x, $side/2), $this->lngPlusMeters($y, $side/2), $radius)['results'];
+        if (null === $results) {
+            return false;
+        }
+
+        return count($results) >= config('search')['max_results'];
+    }
+
+    /**
+     * @param float $lat1
+     * @param float $lng1
+     * @param float $lat2
+     * @param float $lng2
+     * @return float|int|mixed
+     */
+    private function getSide(float $lat1, float $lng1, float $lat2, float $lng2)
+    {
+        $side = config('search')['side'];
+        if ($lat2 - $lat1 < $side * self::LAT_METER) {
+            $side = ($lat2 - $lat1) / self::LAT_METER;
+        }
+        if ($lng2 - $lng1 < $side * self::LNG_METER) {
+            $side = ($lng2 - $lng1) / self::LNG_METER;
+        }
+
+        return $side;
     }
 }

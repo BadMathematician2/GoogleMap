@@ -14,7 +14,7 @@ class SearchGoogleMap extends Command
 
     public function handle()
     {
-        $place = config('place')[$this->argument('place')];
+        $place = config('places')[$this->argument('place')];
 
         if (isset($place)) {
             foreach ($place as $item) {
@@ -23,6 +23,7 @@ class SearchGoogleMap extends Command
         } else {
             $this->info('Sorry, i can`t find such place in config');
         }
+
     }
 
 }

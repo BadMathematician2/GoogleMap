@@ -16,8 +16,8 @@ class CreateGoogleObjectsTable extends Migration
         Schema::create('google_objects', function (Blueprint $table) {
             $table->id();
             $table->text('data');
-            $table->string('product_id');
-            $table->unique('product_id');
+            $table->string('place_id');
+            $table->unique('place_id');
             $table->timestamps();
         });
     }
